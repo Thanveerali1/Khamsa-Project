@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} — {{ app_name }}{% endblock %}
+{% block content %}
+<article class="container article">
+  {% if post.cover_image %}
+    <img class="article__cover" src="{{ url_for('static', filename='uploads/' ~ post.cover_image) }}" alt="{{ post.title }}">
+  {% endif %}
+  <h1>{{ post.title }}</h1>
+  <p class="muted">{{ post.created_at[:10] }}</p>
+  <div class="article__content">
+    {{ post.content | replace('\n', '<br>') | safe }}
+  </div>
+</article>
+{% endblock %}

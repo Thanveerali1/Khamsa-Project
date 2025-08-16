@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+{% block content %}
+{% if mode == "list" %}
+  <div class="container">
+    <div class="toolbar">
+      <h2>Posts</h2>
+      <a class="button" href="{{ url_for('new_post') }}">New Post</a>
+    </div>
+    <div class="table">
+      <div class="row head">
+        <div>Title</div><div>Slug</div><div>Status</div><div>Date</div><div></div>
+      </div>
+      {% for p in posts %}
+      <div class="row">
+        <div>{{ p.title }}</div>
+        <div class="muted small">{{ p.slug }}</div>
+        <div>{{ "Published" if p.published else "Draft" }}</div>
+        <div class="muted small">{{ p.created_at[:10] }}</div>
+        <div class="right">
+          <a class="link" href="{{ url_for('edit_post', pid=p.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('delete_post', pid=p.id) }}" style="display:inline" onsubmit="return confirm('Delete this post?');">
+            <button class="link danger">Delete</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% elif mode == "new" or mode == "edit" %}
+  <div class="container formcard">
+    <h2>{{ "New Post" if mode=="new" else "Edit Post" }}</h2>
+    <form method="post" enctype="multipart/form-data">
+      <label>Title</label>
+      <input type="text" name="title" value="{{ post.title if post else '' }}" required>
+
+      <label>Content</label>
+      <textarea name="content" rows="12" required>{{ post.content if post else '' }}</textarea>
+
+      <label>Cover Image (JPG/PNG/WEBP)</label>
+      <input type="file" name="cover" accept=".jpg,.jpeg,.png,.webp">
+
+      <label class="checkbox">
+        <input type="checkbox" name="published" {% if post and post.published %}checked{% endif %}>
+        Publish now
+      </label>
+
+      <button>{{ "Create" if mode=="new" else "Save" }}</button>
+    </form>
+  </div>
+{% endif %}
+{% endblock %}

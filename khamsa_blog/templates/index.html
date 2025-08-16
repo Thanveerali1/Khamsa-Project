@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — Blog{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero__bg"></div>
+  <div class="container">
+    <div class="hero__card">
+      <h1>Explore. Experience. Repeat.</h1>
+      <p>Fresh guides, stories, and tips from our journeys.</p>
+      <form method="get" class="search">
+        <input type="text" name="q" placeholder="Search destinations, tips…" value="{{ q or '' }}">
+        <button>Search</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="container grid">
+  {% if posts %}
+    {% for p in posts %}
+      <a class="card" href="{{ url_for('view_post', slug=p.slug) }}">
+        {% if p.cover_image %}
+          <img class="card__img" src="{{ url_for('static', filename='uploads/' ~ p.cover_image) }}" alt="{{ p.title }}">
+        {% endif %}
+        <div class="card__body">
+          <h3>{{ p.title }}</h3>
+          <p class="muted">{{ p.created_at[:10] }}</p>
+          <p class="excerpt">{{ p.content[:140] }}{% if p.content|length > 140 %}…{% endif %}</p>
+        </div>
+      </a>
+    {% endfor %}
+  {% else %}
+    <p class="muted">No posts yet.</p>
+  {% endif %}
+</section>
+
+{% if last_page > 1 %}
+  <div class="container pager">
+    {% if page > 1 %}
+      <a href="?q={{ q }}&page={{ page - 1 }}">← Prev</a>
+    {% else %}<span class="muted">← Prev</span>{% endif %}
+    <span class="muted">Page {{ page }} / {{ last_page }}</span>
+    {% if page < last_page %}
+      <a href="?q={{ q }}&page={{ page + 1 }}">Next →</a>
+    {% else %}<span class="muted">Next →</span>{% endif %}
+  </div>
+{% endif %}
+{% endblock %}
