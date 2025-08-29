@@ -1,20 +1,68 @@
 import os, json, re, secrets, datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, g
 from werkzeug.utils import secure_filename
 
 # ---------- Config ----------
 APP_NAME = "Khamsa Travels"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 POSTS_PATH = os.path.join(BASE_DIR, "posts.json")
-UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+UPLOAD_DIR = os.path.join(STATIC_DIR, "uploads")
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 PER_PAGE = 6
+
+# MySQL config (set these in your environment)
+MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
+MYSQL_USER = os.environ.get("MYSQL_USER", "root")
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "")
+MYSQL_DB = os.environ.get("MYSQL_DB", "khamsa_blog")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-change-me")   # set a strong one in prod
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-this")           # set in prod!
+
+# ---------- DB (MySQL) ----------
+#   pip install mysql-connector-python
+import mysql.connector
+
+def get_db():
+    """Get a request-scoped MySQL connection."""
+    if "db" not in g:
+        g.db = mysql.connector.connect(
+            host=MYSQL_HOST,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DB,
+            autocommit=False,
+        )
+    return g.db
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+def init_db():
+    """Create feedbacks table if not exists."""
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feedbacks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            email VARCHAR(120) NULL,
+            rating TINYINT NULL,
+            message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+    )
+    db.commit()
+    cur.close()
 
 # ---------- Utilities ----------
 def load_posts():
@@ -68,14 +116,11 @@ def index():
     page = max(int(request.args.get("page", 1)), 1)
 
     posts = load_posts()
-    # show published; if admin, show all
     visible = posts if is_admin() else [p for p in posts if p.get("published", True)]
     if q:
         visible = [p for p in visible if q in p["title"].lower() or q in p["content"].lower()]
-    # newest first
     visible.sort(key=lambda p: p["created_at"], reverse=True)
 
-    # pagination
     total = len(visible)
     start, end = (page - 1) * PER_PAGE, page * PER_PAGE
     page_items = visible[start:end]
@@ -99,7 +144,41 @@ def view_post(slug):
         abort(404)
     return render_template("view_post.html", app_name=APP_NAME, post=post)
 
-# ---------- Auth (super simple) ----------
+# ---------- Feedback (Public) ----------
+@app.route("/feedback", methods=["GET", "POST"])
+def feedback():
+    init_db()  # ensure table exists
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        rating = request.form.get("rating", "").strip()
+        message = request.form.get("message", "").strip()
+
+        if not name or not message or len(message) < 3:
+            flash("Please provide your name and a valid message.", "warning")
+            return redirect(url_for("feedback"))
+
+        try:
+            rating_val = int(rating) if rating else None
+            if rating_val is not None and (rating_val < 1 or rating_val > 5):
+                rating_val = None
+        except ValueError:
+            rating_val = None
+
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO feedbacks (name, email, rating, message) VALUES (%s, %s, %s, %s)",
+            (name, email or None, rating_val, message)
+        )
+        db.commit()
+        cur.close()
+        flash("Thanks for your feedback!", "success")
+        return redirect(url_for("index"))
+
+    return render_template("feedback.html", app_name=APP_NAME)
+
+# ---------- Auth ----------
 @app.route("/login", methods=["GET","POST"])
 def login():
     if request.method == "POST":
@@ -124,6 +203,48 @@ def dashboard():
     posts.sort(key=lambda p: p["created_at"], reverse=True)
     return render_template("edit_post.html", app_name=APP_NAME, mode="list", posts=posts)
 
+@app.route("/admin/feedbacks")
+def view_feedbacks():
+    if not is_admin(): return redirect(url_for("login"))
+    init_db()
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 12
+    offset = (page - 1) * per_page
+
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+    cur.execute("SELECT COUNT(*) AS c FROM feedbacks")
+    total = cur.fetchone()["c"]
+
+    cur.execute(
+        "SELECT id, name, email, rating, message, created_at FROM feedbacks "
+        "ORDER BY created_at DESC LIMIT %s OFFSET %s",
+        (per_page, offset)
+    )
+    items = cur.fetchall()
+    cur.close()
+
+    last_page = (total + per_page - 1) // per_page
+    return render_template(
+        "feedbacks.html",
+        app_name=APP_NAME,
+        feedbacks=items,
+        page=page,
+        last_page=last_page,
+        total=total
+    )
+
+@app.route("/admin/feedbacks/delete/<int:fid>", methods=["POST"])
+def delete_feedback(fid):
+    if not is_admin(): return redirect(url_for("login"))
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("DELETE FROM feedbacks WHERE id=%s", (fid,))
+    db.commit()
+    cur.close()
+    flash("Feedback deleted.", "info")
+    return redirect(url_for("view_feedbacks"))
+
 @app.route("/admin/new", methods=["GET","POST"])
 def new_post():
     if not is_admin(): return redirect(url_for("login"))
@@ -145,7 +266,7 @@ def new_post():
             "title": title,
             "slug": slug,
             "content": content,
-            "cover_image": cover,  # filename only
+            "cover_image": cover,
             "published": published,
             "created_at": datetime.datetime.utcnow().isoformat()
         }
@@ -179,7 +300,6 @@ def edit_post(pid):
         post["title"] = title
         post["content"] = content
         post["published"] = published
-        # refresh slug from title (ensure uniqueness)
         base = slugify(title)
         post["slug"] = unique_slug(posts, base, ignore_id=pid)
 
@@ -201,5 +321,6 @@ def delete_post(pid):
     return redirect(url_for("dashboard"))
 
 if __name__ == "__main__":
-    # Run the dev server
+    with app.app_context():
+        init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)

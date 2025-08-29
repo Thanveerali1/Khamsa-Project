@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Feedback — {{ app_name }}{% endblock %}
+{% block content %}
+<section class="container" style="margin:28px auto">
+  <div class="formcard reveal">
+    <h2>We value your feedback</h2>
+    <p class="muted" style="margin:0 0 12px">Tell us what you loved and what we can improve.</p>
+
+    <form method="post" action="{{ url_for('feedback') }}">
+      <div class="feedback-row">
+        <input type="text" name="name" placeholder="Your name" required>
+        <input type="email" name="email" placeholder="Email (optional)">
+      </div>
+
+      <div class="rating">
+        <span class="small">Rating:</span>
+        {% for n in range(1,6) %}
+          <input id="r{{n}}" type="radio" name="rating" value="{{n}}">
+          <label for="r{{n}}">{{n}}</label>
+        {% endfor %}
+      </div>
+
+      <textarea name="message" rows="6" placeholder="Write your feedback…" required></textarea>
+      <button type="submit">Submit feedback</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

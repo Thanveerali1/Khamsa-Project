@@ -4,7 +4,7 @@
 <section class="hero">
   <div class="hero__bg"></div>
   <div class="container">
-    <div class="hero__card">
+    <div class="hero__card reveal">
       <h1>Explore. Experience. Repeat.</h1>
       <p>Fresh guides, stories, and tips from our journeys.</p>
       <form method="get" class="search">
@@ -35,7 +35,7 @@
 </section>
 
 {% if last_page > 1 %}
-  <div class="container pager">
+  <div class="container pager reveal">
     {% if page > 1 %}
       <a href="?q={{ q }}&page={{ page - 1 }}">← Prev</a>
     {% else %}<span class="muted">← Prev</span>{% endif %}

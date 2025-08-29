@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,14 +12,26 @@
   <header class="nav">
     <div class="container nav__inner">
       <a class="brand" href="{{ url_for('index') }}">Khamsa Travels</a>
-      <nav>
+      <nav class="nav__right">
         <a href="{{ url_for('index') }}">Blog</a>
+        <a href="{{ url_for('feedback') }}">Feedback</a>
         {% if session.get('admin') %}
+          <a href="{{ url_for('view_feedbacks') }}">Feedbacks</a>
           <a href="{{ url_for('dashboard') }}">Dashboard</a>
           <a href="{{ url_for('logout') }}">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}">Admin</a>
         {% endif %}
+
+        <button id="themeToggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M12 4V2m0 20v-2M4 12H2m20 0h-2M5 5l-1-1m16 16-1-1M5 19l-1 1m16-16-1 1" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
+          </svg>
+        </button>
       </nav>
     </div>
   </header>
@@ -28,7 +40,7 @@
     {% if msgs %}
       <div class="container">
         {% for cat, msg in msgs %}
-          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+          <div class="flash flash-{{ cat }} reveal">{{ msg }}</div>
         {% endfor %}
       </div>
     {% endif %}
@@ -42,5 +54,35 @@
       <div class="muted">Built with Flask</div>
     </div>
   </footer>
+
+  <script>
+    // Theme toggle (persisted)
+    (function(){
+      const key = 'kt-theme';
+      const root = document.documentElement;
+      const saved = localStorage.getItem(key);
+      if (saved) root.setAttribute('data-theme', saved);
+      const btn = document.getElementById('themeToggle');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const current = root.getAttribute('data-theme') || 'dark';
+          const next = current === 'dark' ? 'light' : 'dark';
+          root.setAttribute('data-theme', next);
+          localStorage.setItem(key, next);
+        });
+      }
+    })();
+
+    // Reveal on scroll
+    (function(){
+      const els = document.querySelectorAll('.reveal, .card, .hero__card, .article, .formcard, .table, .pager');
+      const io = new IntersectionObserver((entries)=>{
+        entries.forEach(e=>{
+          if(e.isIntersecting){ e.target.classList.add('reveal--in'); io.unobserve(e.target); }
+        });
+      }, {threshold: 0.12});
+      els.forEach(el=>io.observe(el));
+    })();
+  </script>
 </body>
 </html>

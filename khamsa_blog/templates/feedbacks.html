@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Feedbacks — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container reveal">
+  <div class="toolbar">
+    <h2>Customer Feedbacks</h2>
+    <div class="muted small">{{ total }} total</div>
+  </div>
+
+  <div class="table">
+    <div class="row head">
+      <div>Name / Email</div>
+      <div>Message</div>
+      <div>Rating</div>
+      <div>Date</div>
+      <div></div>
+    </div>
+    {% for f in feedbacks %}
+    <div class="row">
+      <div>
+        <div><strong>{{ f.name }}</strong></div>
+        <div class="small">{{ f.email or "—" }}</div>
+      </div>
+      <div class="muted">{{ f.message }}</div>
+      <div>{{ f.rating or "—" }}</div>
+      <div class="small muted">
+        {{ f.created_at if f.created_at is string else f.created_at.strftime("%Y-%m-%d %H:%M") }}
+      </div>
+      <div class="right">
+        <form method="post" action="{{ url_for('delete_feedback', fid=f.id) }}" onsubmit="return confirm('Delete this feedback?');" style="display:inline">
+          <button class="link danger">Delete</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if last_page > 1 %}
+    <div class="pager">
+      {% if page > 1 %}
+        <a href="{{ url_for('view_feedbacks', page=page-1) }}">← Prev</a>
+      {% else %}<span class="muted">← Prev</span>{% endif %}
+      <span class="muted">Page {{ page }} / {{ last_page }}</span>
+      {% if page < last_page %}
+        <a href="{{ url_for('view_feedbacks', page=page+1) }}">Next →</a>
+      {% else %}<span class="muted">Next →</span>{% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
